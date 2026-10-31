@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>WASM + AI Monitor</title>
+    <!-- Silnik ONNX dla AI -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+    <!-- Skrypt wygenerowany przez Emscripten -->
+    <script src="index.js"></script>
+</head>
+<body style="background: #111; color: #0f0; font-family: monospace;">
+    <h1>System Monitorowania (C++ WASM + AI)</h1>
+    <p>Wynik z C++: <span id="res">-</span></p>
+
+    <script>
+        // Gdy moduł WASM się załaduje, możemy wywołać funkcję z C++
+        Module.onRuntimeInitialized = function() {
+            // Wywołanie funkcji napisanego w C++ skompilowanego przez GitHub Actions
+            const result = _analyze_network_traffic(45.2, 1024, 2.5);
+            document.getElementById('res').innerText = result;
+        };
+    </script>
+</body>
+</html>
