@@ -2,32 +2,69 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>WASM & AI Network Monitor</title>
-    <!-- Ładowanie skryptu wygenerowanego przez em++ -->
+    <title>WASM C++ + AI ONNX Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
     <script src="index.js"></script>
 </head>
 <body style="background: #121212; color: #00ffcc; font-family: monospace; padding: 20px;">
-    <h1>[ Monitor IA + C++ WASM ]</h1>
-    <p>Status: <span id="status" style="color: yellow;">Inicjalizacja modułu...</span></p>
-    <p>Wynik analizy z C++: <strong id="result" style="color: #fff; font-size: 1.2em;">-</strong></p>
+    <h1>[ WebAssembly C++ & AI Anomaly Monitor ]</h1>
+    
+    <p>Adres IP (obrobiony przez C++): <strong id="ip-display" style="color: #fff;">Pobieranie IP...</strong></p>
+    <p>Wynik obliczeń C++ WASM: <strong id="cpp-result" style="color: #fff;">-</strong></p>
+    <hr style="border-color: #333;">
+    <p>Status AI: <span id="ai-status" style="color: yellow;">Oczekiwanie na model...</span></p>
+    <p>Wynik analizy z modelu ONNX: <strong id="ai-result" style="color: #fff;">-</strong></p>
 
-  <script>
-        var Module = {
-            onRuntimeInitialized: function() {
-                document.getElementById('status').innerText = "Moduł C++ działa w WebAssembly! 🔥";
-                
-                const ping = 35.4;
-                const payload = 1024.0;
-                const rate = 2.1;
+    <script>
+        // 1. Pobieranie IP i przekazanie go do C++
+        async function fetchAndSendIPToWasm() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                const userIp = data.ip;
 
-                // Szukamy funkcji na obiekcie Module z podkreśleniem _
-                if (typeof Module._analyze_network_traffic === 'function') {
-                    const score = Module._analyze_network_traffic(ping, payload, rate);
-                    document.getElementById('result').innerText = score.toFixed(4);
-                } else {
-                    document.getElementById('result').innerText = "Błąd: Nie znaleziono funkcji w module Module";
+                if (typeof Module.ccall === 'function') {
+                    // ccall wywołuje funkcję C++ przyjmującą string (string -> const char*) i zwracającą string
+                    const formattedMessage = Module.ccall(
+                        'process_client_ip', 
+                        'string', 
+                        ['string'], 
+                        [userIp]
+                    );
+                    document.getElementById('ip-display').innerText = formattedMessage;
                 }
+            } catch (err) {
+                document.getElementById('ip-display').innerText = "Błąd pobierania IP";
             }
+        }
+
+        // 2. Ładowanie i predykcja silnika AI (ONNX)
+        async function runAI() {
+            try {
+                const session = await ort.InferenceSession.create('./network_anomaly.onnx');
+                document.getElementById('ai-status').innerText = "Model ONNX aktywny! 🧠";
+
+                const inputTensor = new ort.Tensor('float32', new Float32Array([35.4, 1024.0, 2.1]), [1, 3]);
+                const feeds = { [session.inputNames[0]]: inputTensor };
+                const results = await session.run(feeds);
+                
+                const output = results[session.outputNames[0]].data[0];
+                document.getElementById('ai-result').innerText = output.toFixed(4);
+            } catch (e) {
+                document.getElementById('ai-status').innerText = "Brak pliku .onnx w repo (tryb demo)";
+            }
+        }
+
+        // Uruchomienie po załadowaniu modułu WASM
+        Module.onRuntimeInitialized = function() {
+            fetchAndSendIPToWasm();
+
+            if (typeof Module._analyze_network_traffic === 'function') {
+                const score = Module._analyze_network_traffic(35.4, 1024.0, 2.1);
+                document.getElementById('cpp-result').innerText = score.toFixed(4);
+            }
+
+            runAI();
         };
     </script>
 </body>
