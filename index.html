@@ -11,23 +11,21 @@
     <p>Status: <span id="status" style="color: yellow;">Inicjalizacja modułu...</span></p>
     <p>Wynik analizy z C++: <strong id="result" style="color: #fff; font-size: 1.2em;">-</strong></p>
 
-    <script>
-        // Emscripten informuje nas, kiedy moduł WASM jest w pełni gotowy do pracy
+  <script>
         var Module = {
             onRuntimeInitialized: function() {
                 document.getElementById('status').innerText = "Moduł C++ działa w WebAssembly! 🔥";
                 
-                // Przykładowe dane sieciowe do testu (np. ping = 35.4 ms, payload = 1024 bajty, rate = 2.1)
                 const ping = 35.4;
                 const payload = 1024.0;
                 const rate = 2.1;
 
-                // Wywołanie funkcji _analyze_network_traffic napisanego w C++!
-                if (typeof _analyze_network_traffic === 'function') {
-                    const score = _analyze_network_traffic(ping, payload, rate);
+                // Szukamy funkcji na obiekcie Module z podkreśleniem _
+                if (typeof Module._analyze_network_traffic === 'function') {
+                    const score = Module._analyze_network_traffic(ping, payload, rate);
                     document.getElementById('result').innerText = score.toFixed(4);
                 } else {
-                    document.getElementById('result').innerText = "Błąd: Nie znaleziono funkcji w WASM";
+                    document.getElementById('result').innerText = "Błąd: Nie znaleziono funkcji w module Module";
                 }
             }
         };
