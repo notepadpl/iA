@@ -1,21 +1,14 @@
-name: Build WASM and Deploy to GitHub Pages
+name: Build and Deploy to gh-pages
 
 on:
   push:
     branches: [ main, master ]
 
-# Uprawnienia wymagane przez oficjalne akcje Pages
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  contents: write
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Klonowanie repozytorium
@@ -26,7 +19,7 @@ jobs:
         with:
           emscripten-version: '3.1.56'
 
-      - name: Utworzenie folderu wyjściowego (public)
+      - name: Utworzenie folderu wyjściowego
         run: mkdir public
 
       - name: Kompilacja C++ do WebAssembly (em++)
@@ -38,24 +31,14 @@ jobs:
             -s ALLOW_MEMORY_GROWTH=1 \
             -o public/index.js
 
-      - name: Skopiowanie pliku HTML i modelu ONNX do folderu publicznego
+      - name: Skopiowanie pliku HTML i modelu ONNX
         run: |
-          # Załóżmy, że masz index.html i network_anomaly.onnx w głównym katalogu
           cp index.html public/
           if [ -f network_anomaly.onnx ]; then cp network_anomaly.onnx public/; fi
 
-      - name: Przesłanie artefaktu strony
-        uses: actions/upload-pages-artifact@v3
+      - name: Wypchnięcie na gałąź gh-pages
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          path: public
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Wdrożenie na GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          folder: public
+          branch: gh-pages
+          clean: true
