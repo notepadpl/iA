@@ -31,10 +31,10 @@ jobs:
             -s ALLOW_MEMORY_GROWTH=1 \
             -o public/index.js
 
-      - name: Skopiowanie pliku HTML i modelu ONNX
+      - name: Skopiowanie pliku HTML i zasobów AI (assets)
         run: |
           cp index.html public/
-          if [ -f network_anomaly.onnx ]; then cp network_anomaly.onnx public/; fi
+          if [ -d assets ]; then cp -r assets public/; fi
 
       - name: Wypchnięcie na gałąź gh-pages
         uses: JamesIves/github-pages-deploy-action@v4
