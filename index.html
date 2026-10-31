@@ -2,22 +2,34 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>WASM + AI Monitor</title>
-    <!-- Silnik ONNX dla AI -->
-    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
-    <!-- Skrypt wygenerowany przez Emscripten -->
+    <title>WASM & AI Network Monitor</title>
+    <!-- Ładowanie skryptu wygenerowanego przez em++ -->
     <script src="index.js"></script>
 </head>
-<body style="background: #111; color: #0f0; font-family: monospace;">
-    <h1>System Monitorowania (C++ WASM + AI)</h1>
-    <p>Wynik z C++: <span id="res">-</span></p>
+<body style="background: #121212; color: #00ffcc; font-family: monospace; padding: 20px;">
+    <h1>[ Monitor IA + C++ WASM ]</h1>
+    <p>Status: <span id="status" style="color: yellow;">Inicjalizacja modułu...</span></p>
+    <p>Wynik analizy z C++: <strong id="result" style="color: #fff; font-size: 1.2em;">-</strong></p>
 
     <script>
-        // Gdy moduł WASM się załaduje, możemy wywołać funkcję z C++
-        Module.onRuntimeInitialized = function() {
-            // Wywołanie funkcji napisanego w C++ skompilowanego przez GitHub Actions
-            const result = _analyze_network_traffic(45.2, 1024, 2.5);
-            document.getElementById('res').innerText = result;
+        // Emscripten informuje nas, kiedy moduł WASM jest w pełni gotowy do pracy
+        var Module = {
+            onRuntimeInitialized: function() {
+                document.getElementById('status').innerText = "Moduł C++ działa w WebAssembly! 🔥";
+                
+                // Przykładowe dane sieciowe do testu (np. ping = 35.4 ms, payload = 1024 bajty, rate = 2.1)
+                const ping = 35.4;
+                const payload = 1024.0;
+                const rate = 2.1;
+
+                // Wywołanie funkcji _analyze_network_traffic napisanego w C++!
+                if (typeof _analyze_network_traffic === 'function') {
+                    const score = _analyze_network_traffic(ping, payload, rate);
+                    document.getElementById('result').innerText = score.toFixed(4);
+                } else {
+                    document.getElementById('result').innerText = "Błąd: Nie znaleziono funkcji w WASM";
+                }
+            }
         };
     </script>
 </body>
