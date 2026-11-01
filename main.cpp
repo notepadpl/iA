@@ -37,6 +37,31 @@ const char* check_onnx_virtual_file() {
     }
     return output_buffer;
 }
+EMSCRIPTEN_KEEPALIVE
+const char* check_onnx_virtual_file() {
+    FILE* file = fopen("assets/network_anomaly.onnx", "rb");
+    if (file) {
+        fseek(file, 0, SEEK_END);
+        long size = ftell(file);
+        rewind(file);
+
+        // Odczytajmy pierwsze 8 bajtów, żeby zobaczyć nagłówek pliku
+        unsigned char header[8];
+        size_t bytesRead = fread(header, 1, 8, file);
+        fclose(file);
+
+        snprintf(output_buffer, sizeof(output_buffer), 
+            "[SUKCES C++] Plik ONNX OK! Rozmiar: %ld bajtów. Nagłówek (hex): %02X %02X %02X %02X", 
+            size, 
+            bytesRead > 0 ? header[0] : 0, 
+            bytesRead > 1 ? header[1] : 0, 
+            bytesRead > 2 ? header[2] : 0, 
+            bytesRead > 3 ? header[3] : 0);
+    } else {
+        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD C++] Nie udało się otworzyć pliku assets/network_anomaly.onnx.");
+    }
+    return output_buffer;
+}
 
 // 4. Interaktywny Shell w C++
 EMSCRIPTEN_KEEPALIVE
