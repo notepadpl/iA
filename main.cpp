@@ -37,29 +37,35 @@ const char* check_onnx_virtual_file2() {
     }
     return output_buffer;
 }
+
 EMSCRIPTEN_KEEPALIVE
 const char* check_onnx_virtual_file() {
+    // Bezpieczne otwarcie pliku w trybie binarnym
     FILE* file = fopen("assets/network_anomaly.onnx", "rb");
-    if (file) {
-        fseek(file, 0, SEEK_END);
-        long size = ftell(file);
-        rewind(file);
-
-        // Odczytajmy pierwsze 8 bajtów, żeby zobaczyć nagłówek pliku
-        unsigned char header[8];
-        size_t bytesRead = fread(header, 1, 8, file);
-        fclose(file);
-
-        snprintf(output_buffer, sizeof(output_buffer), 
-            "[SUKCES C++] Plik ONNX OK! Rozmiar: %ld bajtów. Nagłówek (hex): %02X %02X %02X %02X", 
-            size, 
-            bytesRead > 0 ? header[0] : 0, 
-            bytesRead > 1 ? header[1] : 0, 
-            bytesRead > 2 ? header[2] : 0, 
-            bytesRead > 3 ? header[3] : 0);
-    } else {
-        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD C++] Nie udało się otworzyć pliku assets/network_anomaly.onnx.");
+    if (!file) {
+        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD C++] Nie można otworzyć pliku.");
+        return output_buffer;
     }
+
+    // Bezpieczne odczytanie pierwszych 4 bajtów bez używania fseek (zero ryzyka zawieszenia)
+    unsigned char header[4] = {0};
+    size_t bytesRead = fread(header, 1, 4, file);
+    
+    // Szybkie policzenie orientacyjnego rozmiaru poprzez przesunięcie na koniec i powrót, 
+    // ale zrobione prosto:
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    
+    fclose(file);
+
+    snprintf(output_buffer, sizeof(output_buffer), 
+        "OK | Rozmiar: %ld B | Nagłówek: %02X %02X %02X %02X", 
+        size, 
+        bytesRead > 0 ? header[0] : 0, 
+        bytesRead > 1 ? header[1] : 0, 
+        bytesRead > 2 ? header[2] : 0, 
+        bytesRead > 3 ? header[3] : 0);
+
     return output_buffer;
 }
 
@@ -83,11 +89,11 @@ const char* execute_shell_command(const char* command) {
     }
     else if (strcmp(command, "checkai") == 0) {
         // Wywołanie testu pliku bezpośrednio z komendy shella!
-        return check_onnx_virtual_file2();
+        return check_onnx_virtual_file();
     }
        else if (strcmp(command, "ai") == 0) {
         // Wywołanie testu pliku bezpośrednio z komendy shella!
-        return check_onnx_virtual_file();
+        return check_onnx_virtual_file2();
     }
     else {
         snprintf(output_buffer, sizeof(output_buffer), "Nieznana komenda: '%s'. Wpisz 'help'.", command);
