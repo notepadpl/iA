@@ -68,7 +68,51 @@ const char* check_onnx_virtual_file() {
 
     return output_buffer;
 }
+// 5. Ożywienie Frankensteina: Wczytanie całego pliku ONNX do pamięci C++ przez malloc
+EMSCRIPTEN_KEEPALIVE
+const char* load_frankenstein_model() {
+    FILE* file = fopen("assets/network_anomaly.onnx", "rb");
+    if (!file) {
+        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD] Frankenstein nie znalazł mózgu (brak pliku)!");
+        return output_buffer;
+    }
 
+    // Pobierz rozmiar
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    rewind(file);
+
+    // Alokacja pamięci w C++ (tworzymy ciało potwora w RAM)
+    unsigned char* monster_brain = (unsigned char*)malloc(size);
+    if (!monster_brain) {
+        fclose(file);
+        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD] Za mało pamięci na stercie dla potwora!");
+        return output_buffer;
+    }
+
+    // Wczytanie całego pliku naraz do pamięci C++
+    size_t bytesRead = fread(monster_brain, 1, size, file);
+    fclose(file);
+
+    if (bytesRead != (size_t)size) {
+        free(monster_brain);
+        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD] Nie udało się wczytać wszystkich bajtów potwora.");
+        return output_buffer;
+    }
+
+    // Frankenstein żyje! Mamy cały model w surowej pamięci C++
+    // Pokazujemy pierwszy i ostatni bajt jako dowód, że potwór połknął całość
+    snprintf(output_buffer, sizeof(output_buffer), 
+        "⚡ [FRANKENSTEIN OŻYŁ] Wczytano %ld bajtów do pamięci RAM C++! Pierwszy bajt: 0x%02X, Ostatni bajt: 0x%02X", 
+        size, 
+        monster_brain[0], 
+        monster_brain[size - 1]);
+
+    // Sprzątamy pamięć (lub w przyszłości możemy przypisać monster_brain do globalnego wskaźnika)
+    free(monster_brain);
+    
+    return output_buffer;
+}
 // 4. Interaktywny Shell w C++
 EMSCRIPTEN_KEEPALIVE
 const char* execute_shell_command(const char* command) {
@@ -94,6 +138,9 @@ const char* execute_shell_command(const char* command) {
        else if (strcmp(command, "ai") == 0) {
         // Wywołanie testu pliku bezpośrednio z komendy shella!
         return check_onnx_virtual_file2();
+    }
+    else if (strcmp(command, "ia") == 0) {
+        return load_frankenstein_model();
     }
     else {
         snprintf(output_buffer, sizeof(output_buffer), "Nieznana komenda: '%s'. Wpisz 'help'.", command);
