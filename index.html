@@ -85,7 +85,7 @@
         async function loadAIModel() {
             try {
                 // Ścieżka wskazuje na plik wbudowany przez flagę --preload-file assets
-                const session = await ort.InferenceSession.create('assets/network_anomaly.onnx');
+                const session = await ort.InferenceSession.create('network_anomaly.onnx');
                 document.getElementById('ai-status').innerText = "Aktywny (Wirtualny FS) 🧠";
                 logToTerminal("Model ONNX załadowany poprawnie z wirtualnego systemu plików!");
 
