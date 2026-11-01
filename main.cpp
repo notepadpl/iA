@@ -83,6 +83,10 @@ const char* execute_shell_command(const char* command) {
     }
     else if (strcmp(command, "checkai") == 0) {
         // Wywołanie testu pliku bezpośrednio z komendy shella!
+        return check_onnx_virtual_file2();
+    }
+       else if (strcmp(command, "ai") == 0) {
+        // Wywołanie testu pliku bezpośrednio z komendy shella!
         return check_onnx_virtual_file();
     }
     else {
