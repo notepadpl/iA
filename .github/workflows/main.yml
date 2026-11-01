@@ -22,12 +22,12 @@ jobs:
       - name: Utworzenie folderu wyjściowego
         run: mkdir public
 
-      - name: Kompilacja C++ do WebAssembly (em++) z wbudowanym modelem AI
+      - name: Kompilacja C++ do WebAssembly (em++) z wbudowanym Dżinem AI
         run: |
           em++ main.cpp -O3 --preload-file assets/network_anomaly.onnx \
             -s WASM=1 \
             -s EXPORTED_RUNTIME_METHODS='["cwrap", "ccall", "UTF8ToString"]' \
-            -s EXPORTED_FUNCTIONS="['_analyze_network_traffic', '_process_client_ip', '_execute_shell_command', '_load_frankenstein_model', '_check_onnx_virtual_file', '_check_onnx_virtual_file2', '_malloc', '_free']" \
+            -s EXPORTED_FUNCTIONS="['_analyze_network_traffic', '_process_client_ip', '_execute_shell_command', '_summon_genie', '_talk_to_genie', '_malloc', '_free']" \
             -s ALLOW_MEMORY_GROWTH=1 \
             -o public/index.js
 
