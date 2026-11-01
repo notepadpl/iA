@@ -21,7 +21,7 @@ float analyze_network_traffic(float ping_ms, float payload_size, float req_rate)
 
 // 3. Test w C++: Sprawdzenie czy plik ONNX w wirtualnym systemie plików istnieje i daje się otworzyć
 EMSCRIPTEN_KEEPALIVE
-const char* check_onnx_virtual_file() {
+const char* check_onnx_virtual_file2() {
     // Emscripten po spakowaniu flagą --preload-file tworzy wirtualny system plików,
     // więc C++ widzi plik pod ścieżką, z którą został uruchomiony.
     FILE* file = fopen("assets/network_anomaly.onnx", "rb");
