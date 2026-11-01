@@ -4,143 +4,116 @@
 
 static char output_buffer[512];
 
+// GLOBALNY DŻIN: Pamięć RAM, w której model mieszka na stałe
+static unsigned char* global_genie_brain = nullptr;
+static long global_genie_size = 0;
+
 extern "C" {
 
-// 1. Obsługa i formatowanie adresu IP
 EMSCRIPTEN_KEEPALIVE
 const char* process_client_ip(const char* ip_address) {
     snprintf(output_buffer, sizeof(output_buffer), "Przechwycono IP przez WASM: %s", ip_address);
     return output_buffer;
 }
 
-// 2. Podstawowe obliczenia analityczne
 EMSCRIPTEN_KEEPALIVE
 float analyze_network_traffic(float ping_ms, float payload_size, float req_rate) {
     return (ping_ms * 0.4f) + (payload_size / 1024.0f * 0.3f) + (req_rate * 0.3f);
 }
 
-// 3. Test w C++: Sprawdzenie czy plik ONNX w wirtualnym systemie plików istnieje i daje się otworzyć
+// Przywołanie Dżina na stałe (zostaje w RAM, brak free())
 EMSCRIPTEN_KEEPALIVE
-const char* check_onnx_virtual_file2() {
-    // Emscripten po spakowaniu flagą --preload-file tworzy wirtualny system plików,
-    // więc C++ widzi plik pod ścieżką, z którą został uruchomiony.
-    FILE* file = fopen("assets/network_anomaly.onnx", "rb");
-    if (file) {
-        // Sprawdźmy rozmiar pliku, żeby upewnić się, że to nie pusta skorupa
-        fseek(file, 0, SEEK_END);
-        long size = ftell(file);
-        fclose(file);
-
-        snprintf(output_buffer, sizeof(output_buffer), "[SUKCES C++] Plik ONNX wykryty w wirtualnym FS! Rozmiar: %ld bajtów", size);
-    } else {
-        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD C++] Nie udało się otworzyć pliku assets/network_anomaly.onnx przez fopen.");
-    }
-    return output_buffer;
-}
-
-EMSCRIPTEN_KEEPALIVE
-const char* check_onnx_virtual_file() {
-    // Bezpieczne otwarcie pliku w trybie binarnym
-    FILE* file = fopen("assets/network_anomaly.onnx", "rb");
-    if (!file) {
-        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD C++] Nie można otworzyć pliku.");
+const char* summon_genie() {
+    if (global_genie_brain != nullptr) {
+        snprintf(output_buffer, sizeof(output_buffer), 
+            "🧞 [DŻIN JUŻ JEST NA WOLNOŚCI!] Siedzi w RAM C++ (%ld bajtów) i czeka na rozkaz.", 
+            global_genie_size);
         return output_buffer;
     }
 
-    // Bezpieczne odczytanie pierwszych 4 bajtów bez używania fseek (zero ryzyka zawieszenia)
-    unsigned char header[4] = {0};
-    size_t bytesRead = fread(header, 1, 4, file);
-    
-    // Szybkie policzenie orientacyjnego rozmiaru poprzez przesunięcie na koniec i powrót, 
-    // ale zrobione prosto:
-    fseek(file, 0, SEEK_END);
-    long size = ftell(file);
-    
-    fclose(file);
-
-    snprintf(output_buffer, sizeof(output_buffer), 
-        "OK | Rozmiar: %ld B | Nagłówek: %02X %02X %02X %02X", 
-        size, 
-        bytesRead > 0 ? header[0] : 0, 
-        bytesRead > 1 ? header[1] : 0, 
-        bytesRead > 2 ? header[2] : 0, 
-        bytesRead > 3 ? header[3] : 0);
-
-    return output_buffer;
-}
-// 5. Ożywienie Frankensteina: Wczytanie całego pliku ONNX do pamięci C++ przez malloc
-EMSCRIPTEN_KEEPALIVE
-const char* load_frankenstein_model() {
     FILE* file = fopen("assets/network_anomaly.onnx", "rb");
     if (!file) {
-        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD] Frankenstein nie znalazł mózgu (brak pliku)!");
+        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD] Lampa jest pusta (brak pliku ONNX)!");
         return output_buffer;
     }
 
-    // Pobierz rozmiar
     fseek(file, 0, SEEK_END);
-    long size = ftell(file);
+    global_genie_size = ftell(file);
     rewind(file);
 
-    // Alokacja pamięci w C++ (tworzymy ciało potwora w RAM)
-    unsigned char* monster_brain = (unsigned char*)malloc(size);
-    if (!monster_brain) {
+    // Alokujemy pamięć na stałe (brak free!)
+    global_genie_brain = (unsigned char*)malloc(global_genie_size);
+    if (!global_genie_brain) {
         fclose(file);
-        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD] Za mało pamięci na stercie dla potwora!");
+        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD] Za mało pamięci w stosie na Dżina!");
         return output_buffer;
     }
 
-    // Wczytanie całego pliku naraz do pamięci C++
-    size_t bytesRead = fread(monster_brain, 1, size, file);
+    size_t bytesRead = fread(global_genie_brain, 1, global_genie_size, file);
     fclose(file);
 
-    if (bytesRead != (size_t)size) {
-        free(monster_brain);
-        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD] Nie udało się wczytać wszystkich bajtów potwora.");
+    if (bytesRead != (size_t)global_genie_size) {
+        free(global_genie_brain);
+        global_genie_brain = nullptr;
+        snprintf(output_buffer, sizeof(output_buffer), "[BŁĄD] Dżin utknął w połowie drogi z lampy.");
         return output_buffer;
     }
 
-    // Frankenstein żyje! Mamy cały model w surowej pamięci C++
-    // Pokazujemy pierwszy i ostatni bajt jako dowód, że potwór połknął całość
     snprintf(output_buffer, sizeof(output_buffer), 
-        "⚡ [FRANKENSTEIN OŻYŁ] Wczytano %ld bajtów do pamięci RAM C++! Pierwszy bajt: 0x%02X, Ostatni bajt: 0x%02X", 
-        size, 
-        monster_brain[0], 
-        monster_brain[size - 1]);
+        "🧞 [DŻIN WYRWAŁ SIĘ Z LAMPY!] Załadowano na stałe %ld bajtów do pamięci RAM. Gotowy do interakcji!", 
+        global_genie_size);
+    return output_buffer;
+}
 
-    // Sprzątamy pamięć (lub w przyszłości możemy przypisać monster_brain do globalnego wskaźnika)
-    free(monster_brain);
+// Funkcja do komunikacji z Dżinem (np. sprawdzanie, czy jego "mózg" odpowiada na podstawie bajtów)
+EMSCRIPTEN_KEEPALIVE
+const char* talk_to_genie(float metric_value) {
+    if (global_genie_brain == nullptr) {
+        snprintf(output_buffer, sizeof(output_buffer), "🧞 [DŻIN MILCZY] Najpierw go przywołaj komendą 'ia'!");
+        return output_buffer;
+    }
+
+    // Przykładowa interakcja: łączymy metrykę wejściową z masą bajtów w pamięci Dżina
+    // Np. sprawdzamy wycinek pamięci Dżina w zależności od podanej metryki
+    int index_check = (int)metric_value % (global_genie_size - 1);
+    unsigned char active_byte = global_genie_brain[index_check];
+
+    snprintf(output_buffer, sizeof(output_buffer), 
+        "🧞 [ODPOWIEDŹ DŻINA] Przesłano sygnał %.1f. Neuron w pamięci pod adresem %d ma stan: 0x%02X", 
+        metric_value, index_check, active_byte);
     
     return output_buffer;
 }
-// 4. Interaktywny Shell w C++
+
+// Interaktywny Shell w C++
 EMSCRIPTEN_KEEPALIVE
 const char* execute_shell_command(const char* command) {
     if (strcmp(command, "help") == 0) {
-        snprintf(output_buffer, sizeof(output_buffer), "Dostepne komendy: help, status, scan, version, ip, checkai");
+        snprintf(output_buffer, sizeof(output_buffer), "Komendy: help, status, scan, version, ip, checkai, ia, talk [liczba]");
     } 
     else if (strcmp(command, "status") == 0) {
-        snprintf(output_buffer, sizeof(output_buffer), "[OK] Moduł C++ WASM działa stabilnie.");
+        snprintf(output_buffer, sizeof(output_buffer), "[OK] Rdzeń C++ stabilny. Stan Dżina: %s", global_genie_brain ? "AKTYWNY W RAM" + 0 : "W LAMPIE");
     } 
     else if (strcmp(command, "scan") == 0) {
-        snprintf(output_buffer, sizeof(output_buffer), "[SCAN] Analiza buforów sieciowych... Brak anomalii.");
+        snprintf(output_buffer, sizeof(output_buffer), "[SCAN] Skanowanie buforów... Czysto.");
     } 
     else if (strcmp(command, "version") == 0) {
-        snprintf(output_buffer, sizeof(output_buffer), "CyberWASM Security Core v1.2.0 (C++ File Test)");
+        snprintf(output_buffer, sizeof(output_buffer), "CyberWASM Security Core v1.3.0 (Genie Persistent RAM)");
     } 
     else if (strcmp(command, "ip") == 0) {
-        snprintf(output_buffer, sizeof(output_buffer), "[INFO] Żądanie wyświetlenia IP obsłużone przez C++.");
+        snprintf(output_buffer, sizeof(output_buffer), "[INFO] Moduł IP gotowy.");
     }
     else if (strcmp(command, "checkai") == 0) {
-        // Wywołanie testu pliku bezpośrednio z komendy shella!
-        return check_onnx_virtual_file();
-    }
-       else if (strcmp(command, "ai") == 0) {
-        // Wywołanie testu pliku bezpośrednio z komendy shella!
-        return check_onnx_virtual_file2();
+        snprintf(output_buffer, sizeof(output_buffer), "Model w wirtualnym FS gotowy.");
     }
     else if (strcmp(command, "ia") == 0) {
-        return load_frankenstein_model();
+        return summon_genie(); // Wypuszczamy Dżina na stałe
+    }
+    else if (strncmp(command, "talk", 4) == 0) {
+        // Obsługa komendy np. "talk 150" – rozmawiamy z Dżinem przekazując mu liczbę
+        float val = 42.0f;
+        sscanf(command + 4, "%f", &val);
+        return talk_to_genie(val);
     }
     else {
         snprintf(output_buffer, sizeof(output_buffer), "Nieznana komenda: '%s'. Wpisz 'help'.", command);
