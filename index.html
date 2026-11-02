@@ -2,29 +2,42 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>CyberWASM Security & Blog Genie</title>
+    <title>CyberWASM Security & Blog Genie 🧞</title>
     <style>
         body { background: #0d1117; color: #58a6ff; font-family: monospace; padding: 20px; }
-        #terminal { background: #161b22; border: 1px: solid #30363d; padding: 15px; height: 400px; overflow-y: scroll; border-radius: 6px; }
-        input { background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; width: 100%; padding: 10px; font-family: monospace; margin-top: 10px; }
+        #terminal { background: #161b22; border: 1px solid #30363d; padding: 15px; height: 400px; overflow-y: scroll; border-radius: 6px; margin-bottom: 10px; }
+        input { background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; width: 100%; padding: 10px; font-family: monospace; box-sizing: border-box; border-radius: 4px; }
+        .loading { color: #8b949e; font-style: italic; }
     </style>
 </head>
 <body>
-    <h2>CyberWASM Security Core + Blog Genie 🧞</h2>
-    <div id="terminal"></div>
-    <input type="text" id="commandInput" placeholder="Wpisz komendę (np. help, ia, ask gl, status)..." autofocus>
+    <h2>CyberWASM Security & Blog Genie 🧞</h2>
+    <div id="terminal">
+        <div class="loading">> Inicjalizacja środowiska WebAssembly... Proszę czekać.</div>
+    </div>
+    <input type="text" id="commandInput" placeholder="Wpisz komendę (np. help, ia, ask tetris)..." disabled autofocus>
 
     <script>
-        let Module = {
+        let wasmReady = false;
+
+        // Konfiguracja obiektu Module dla Emscriptena
+        var Module = {
             onRuntimeInitialized: function() {
-                logToTerminal("Inicjalizacja środowiska WebAssembly zakończona pomyślnie.");
-                // Automatyczne pobranie IP klienta (opcjonalnie)
+                wasmReady = true;
+                const term = document.getElementById('terminal');
+                term.innerHTML += `<div>> Środowisko WebAssembly gotowe. Wpisz 'help'.</div>`;
+                document.getElementById('commandInput').disabled = false;
+                term.scrollTop = term.scrollHeight;
+
+                // Przechwycenie IP (opcjonalnie)
                 fetch('https://api.ipify.org?format=json')
                     .then(res => res.json())
                     .then(data => {
-                        let result = Module.ccall('process_client_ip', 'string', ['string'], [data.ip]);
-                        logToTerminal("> " + result);
-                    }).catch(() => logToTerminal("> [IP] Tryb offline / lokalny"));
+                        if (typeof Module.ccall === 'function') {
+                            let result = Module.ccall('process_client_ip', 'string', ['string'], [data.ip]);
+                            logToTerminal("> " + result);
+                        }
+                    }).catch(() => logToTerminal("> [IP] Tryb lokalny (offline)"));
             }
         };
 
@@ -36,21 +49,31 @@
 
         document.getElementById('commandInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                let cmd = this.value;
+                if (!wasmReady) {
+                    logToTerminal("⚠️ Czekaj! WebAssembly jeszcze się ładuje...");
+                    return;
+                }
+
+                let cmd = this.value.trim();
+                if (!cmd) return;
+                
                 logToTerminal("> " + cmd);
                 this.value = '';
 
-                // Wywołanie funkcji C++ przez ccall!
                 try {
-                    let response = Module.ccall('execute_shell_command', 'string', ['string'], [cmd]);
-                    logToTerminal(response);
+                    if (typeof Module.ccall === 'function') {
+                        let response = Module.ccall('execute_shell_command', 'string', ['string'], [cmd]);
+                        logToTerminal(response);
+                    } else {
+                        logToTerminal("Błąd: Moduł ccall nie jest dostępny.");
+                    }
                 } catch (err) {
                     logToTerminal("Błąd wykonania w C++: " + err);
                 }
             }
         });
     </script>
-    <!-- Skrypt wygenerowany przez Emscripten -->
+    <!-- Ładowanie skryptu wygenerowanego przez Emscripten -->
     <script src="index.js"></script>
 </body>
 </html>
