@@ -2,117 +2,55 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>CyberWASM & AI Terminal</title>
-    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
-    <script src="index.js"></script>
+    <title>CyberWASM Security & Blog Genie</title>
     <style>
-        body { background: #0d1117; color: #00ffcc; font-family: 'Courier New', Courier, monospace; padding: 20px; }
-        .box { border: 1px solid #30363d; background: #161b22; padding: 15px; margin-bottom: 15px; border-radius: 6px; }
-        #terminal-output { background: #010409; color: #7ee787; padding: 10px; height: 150px; overflow-y: auto; border: 1px solid #30363d; font-size: 0.9em; margin-bottom: 10px; }
-        input[type="text"] { width: 70%; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #fff; font-family: monospace; }
-        button { padding: 8px 15px; background: #238636; color: white; border: none; cursor: pointer; font-family: monospace; border-radius: 4px; }
-        button:hover { background: #2ea043; }
+        body { background: #0d1117; color: #58a6ff; font-family: monospace; padding: 20px; }
+        #terminal { background: #161b22; border: 1px: solid #30363d; padding: 15px; height: 400px; overflow-y: scroll; border-radius: 6px; }
+        input { background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; width: 100%; padding: 10px; font-family: monospace; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <h1>[ CyberWASM & AI Core Terminal ]</h1>
-    
-    <div class="box">
-        <p>Adres IP (klient): <strong id="ip-display" style="color: #fff;">Pobieranie...</strong></p>
-        <p>Wskaźnik ruchu C++: <strong id="cpp-result" style="color: #fff;">-</strong></p>
-        <p>Status AI (ONNX): <span id="ai-status" style="color: yellow;">Ładowanie modelu z zasobów...</span></p>
-        <p>Wynik predykcji AI: <strong id="ai-result" style="color: #fff;">-</strong></p>
-    </div>
-
-    <div class="box">
-        <h3>> Interaktywny Shell C++ (WASM)</h3>
-        <div id="terminal-output">System gotowy. Wpisz 'help', aby zobaczyć dostępne komendy.<br></div>
-        <input type="text" id="cmd-input" placeholder="Wpisz komendę (np. help, status, ip)..." onkeydown="if(event.key === 'Enter') runCommand()">
-        <button onclick="runCommand()">Wyślij</button>
-    </div>
+    <h2>CyberWASM Security Core + Blog Genie 🧞</h2>
+    <div id="terminal"></div>
+    <input type="text" id="commandInput" placeholder="Wpisz komendę (np. help, ia, ask gl, status)..." autofocus>
 
     <script>
-        let cachedUserIp = "Nieznane";
+        let Module = {
+            onRuntimeInitialized: function() {
+                logToTerminal("Inicjalizacja środowiska WebAssembly zakończona pomyślnie.");
+                // Automatyczne pobranie IP klienta (opcjonalnie)
+                fetch('https://api.ipify.org?format=json')
+                    .then(res => res.json())
+                    .then(data => {
+                        let result = Module.ccall('process_client_ip', 'string', ['string'], [data.ip]);
+                        logToTerminal("> " + result);
+                    }).catch(() => logToTerminal("> [IP] Tryb offline / lokalny"));
+            }
+        };
 
-        // Funkcja logująca w terminalu na stronie
-        function logToTerminal(text, isError = false) {
-            const term = document.getElementById('terminal-output');
-            term.innerHTML += `<span style="color: ${isError ? '#ff7b72' : '#7ee787'}">> ${text}</span><br>`;
+        function logToTerminal(text) {
+            const term = document.getElementById('terminal');
+            term.innerHTML += `<div>${text}</div>`;
             term.scrollTop = term.scrollHeight;
         }
 
-        // Obsługa konsoli Shell
-        function runCommand() {
-            const input = document.getElementById('cmd-input');
-            const cmd = input.value.trim();
-            if (!cmd) return;
+        document.getElementById('commandInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                let cmd = this.value;
+                logToTerminal("> " + cmd);
+                this.value = '';
 
-            logToTerminal(cmd);
-            input.value = "";
-
-            if (typeof Module.ccall === 'function') {
-                let response = "";
-                // Specjalna obsługa komendy 'ip' w JS/C++
-                if (cmd === "ip") {
-                    response = Module.ccall('process_client_ip', 'string', ['string'], [cachedUserIp]);
-                } else {
-                    response = Module.ccall('execute_shell_command', 'string', ['string'], [cmd]);
+                // Wywołanie funkcji C++ przez ccall!
+                try {
+                    let response = Module.ccall('execute_shell_command', 'string', ['string'], [cmd]);
+                    logToTerminal(response);
+                } catch (err) {
+                    logToTerminal("Błąd wykonania w C++: " + err);
                 }
-                logToTerminal(response);
-            } else {
-                logToTerminal("Błąd: Moduł C++ nie jest jeszcze gotowy.", true);
             }
-        }
-
-        // Automatyczne pobieranie IP
-        async function fetchIP() {
-            try {
-                const response = await fetch('https://api.ipify.org?format=json');
-                const data = await response.json();
-                cachedUserIp = data.ip;
-
-                if (typeof Module.ccall === 'function') {
-                    const msg = Module.ccall('process_client_ip', 'string', ['string'], [cachedUserIp]);
-                    document.getElementById('ip-display').innerText = cachedUserIp;
-                    logToTerminal(msg);
-                }
-            } catch (err) {
-                document.getElementById('ip-display').innerText = "Błąd pobierania IP";
-            }
-        }
-
-        // Ładowanie modelu AI przez wirtualny system plików emscriptena (--preload-file)
-        async function loadAIModel() {
-            try {
-                // Ścieżka wskazuje na plik wbudowany przez flagę --preload-file assets
-                const session = await ort.InferenceSession.create('network_anomaly.onnx');
-                document.getElementById('ai-status').innerText = "Aktywny (Wirtualny FS) 🧠";
-                logToTerminal("Model ONNX załadowany poprawnie z wirtualnego systemu plików!");
-
-                const inputTensor = new ort.Tensor('float32', new Float32Array([35.4, 1024.0, 2.1]), [1, 3]);
-                const feeds = { [session.inputNames[0]]: inputTensor };
-                const results = await session.run(feeds);
-                
-                const output = results[session.outputNames[0]].data[0];
-                document.getElementById('ai-result').innerText = output.toFixed(4);
-            } catch (e) {
-                document.getElementById('ai-status').innerText = "Brak pliku w assets/ (tryb demo)";
-                logToTerminal("Ostrzeżenie: Nie znaleziono modelu w assets/network_anomaly.onnx", true);
-            }
-        }
-
-        // Inicjalizacja po załadowaniu modułu WASM
-        Module.onRuntimeInitialized = function() {
-            logToTerminal("Inicjalizacja środowiska WebAssembly zakończona pomyślnie.");
-            fetchIP();
-
-            if (typeof Module._analyze_network_traffic === 'function') {
-                const score = Module._analyze_network_traffic(35.4, 1024.0, 2.1);
-                document.getElementById('cpp-result').innerText = score.toFixed(4);
-            }
-
-            loadAIModel();
-        };
+        });
     </script>
+    <!-- Skrypt wygenerowany przez Emscripten -->
+    <script src="index.js"></script>
 </body>
 </html>
