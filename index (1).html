@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>CyberWASM & AI Terminal</title>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+    <script src="index.js"></script>
+    <style>
+        body { background: #0d1117; color: #00ffcc; font-family: 'Courier New', Courier, monospace; padding: 20px; }
+        .box { border: 1px solid #30363d; background: #161b22; padding: 15px; margin-bottom: 15px; border-radius: 6px; }
+        #terminal-output { background: #010409; color: #7ee787; padding: 10px; height: 150px; overflow-y: auto; border: 1px solid #30363d; font-size: 0.9em; margin-bottom: 10px; }
+        input[type="text"] { width: 70%; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #fff; font-family: monospace; }
+        button { padding: 8px 15px; background: #238636; color: white; border: none; cursor: pointer; font-family: monospace; border-radius: 4px; }
+        button:hover { background: #2ea043; }
+    </style>
+</head>
+<body>
+    <h1>[ CyberWASM & AI Core Terminal ]</h1>
+    
+    <div class="box">
+        <p>Adres IP (klient): <strong id="ip-display" style="color: #fff;">Pobieranie...</strong></p>
+        <p>Wskaźnik ruchu C++: <strong id="cpp-result" style="color: #fff;">-</strong></p>
+        <p>Status AI (ONNX): <span id="ai-status" style="color: yellow;">Ładowanie modelu z zasobów...</span></p>
+        <p>Wynik predykcji AI: <strong id="ai-result" style="color: #fff;">-</strong></p>
+    </div>
+
+    <div class="box">
+        <h3>> Interaktywny Shell C++ (WASM)</h3>
+        <div id="terminal-output">System gotowy. Wpisz 'help', aby zobaczyć dostępne komendy.<br></div>
+        <input type="text" id="cmd-input" placeholder="Wpisz komendę (np. help, status, ip)..." onkeydown="if(event.key === 'Enter') runCommand()">
+        <button onclick="runCommand()">Wyślij</button>
+    </div>
+
+    <script>
+        let cachedUserIp = "Nieznane";
+
+        // Funkcja logująca w terminalu na stronie
+        function logToTerminal(text, isError = false) {
+            const term = document.getElementById('terminal-output');
+            term.innerHTML += `<span style="color: ${isError ? '#ff7b72' : '#7ee787'}">> ${text}</span><br>`;
+            term.scrollTop = term.scrollHeight;
+        }
+
+        async function runCommand() {
+    const input = document.getElementById('cmd-input');
+    const cmd = input.value.trim();
+    if (!cmd) return;
+
+    logToTerminal(cmd);
+    input.value = "";
+
+    if (typeof Module.ccall === 'function') {
+        // Obsługa wywołania AI przez PHP Proxy (cURL)
+        if (cmd.startsWith("askai ")) {
+            const promptText = cmd.substring(6).trim();
+            if (!promptText) {
+                logToTerminal("Użycie: askai <twoje pytanie>", true);
+                return;
+            }
+
+            logToTerminal("🤖 Wysyłam zapytanie do serwera AI...", false);
+            
+            try {
+                // Wywołanie Twojego skryptu PHP na serwerze
+                const response = await fetch('ai-proxy.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ prompt: promptText })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    logToTerminal("Błąd AI: " + (typeof data.error === 'string' ? data.error : JSON.stringify(data.error)), true);
+                } else if (data.choices && data.choices[0] && data.choices[0].message) {
+                    // Wyciągnięcie odpowiedzi z formatu OpenAI API
+                    const reply = data.choices[0].message.content;
+                    // Zamiana nowych linii na znaczniki <br> w terminalu HTML
+                    const formattedReply = reply.replace(/\n/g, '<br>');
+                    logToTerminal("<b>AI:</b> " + formattedReply);
+                } else {
+                    logToTerminal("Otrzymano nieoczekiwaną strukturę danych z serwera.", true);
+                }
+            } catch (err) {
+                logToTerminal("Błąd sieciowy z serwerem proxy: " + err.message, true);
+            }
+            return;
+        }
+
+        // Standardowe komendy C++
+        let response = "";
+        if (cmd === "ip") {
+            response = Module.ccall('process_client_ip', 'string', ['string'], [cachedUserIp]);
+        } else {
+            response = Module.ccall('execute_shell_command', 'string', ['string'], [cmd]);
+        }
+        logToTerminal(response);
+    } else {
+        logToTerminal("Błąd: Moduł C++ nie jest jeszcze gotowy.", true);
+    }
+}
+
+        // Ładowanie modelu AI przez wirtualny system plików emscriptena (--preload-file)
+        async function loadAIModel() {
+            try {
+                // Ścieżka wskazuje na plik wbudowany przez flagę --preload-file assets
+                const session = await ort.InferenceSession.create('network_anomaly.onnx');
+                document.getElementById('ai-status').innerText = "Aktywny (Wirtualny FS) 🧠";
+                logToTerminal("Model ONNX załadowany poprawnie z wirtualnego systemu plików!");
+
+                const inputTensor = new ort.Tensor('float32', new Float32Array([35.4, 1024.0, 2.1]), [1, 3]);
+                const feeds = { [session.inputNames[0]]: inputTensor };
+                const results = await session.run(feeds);
+                
+                const output = results[session.outputNames[0]].data[0];
+                document.getElementById('ai-result').innerText = output.toFixed(4);
+            } catch (e) {
+                document.getElementById('ai-status').innerText = "Brak pliku w assets/ (tryb demo)";
+                logToTerminal("Ostrzeżenie: Nie znaleziono modelu w assets/network_anomaly.onnx", true);
+            }
+        }
+
+        // Inicjalizacja po załadowaniu modułu WASM
+        Module.onRuntimeInitialized = function() {
+            logToTerminal("Inicjalizacja środowiska WebAssembly zakończona pomyślnie.");
+            fetchIP();
+
+            if (typeof Module._analyze_network_traffic === 'function') {
+                const score = Module._analyze_network_traffic(35.4, 1024.0, 2.1);
+                document.getElementById('cpp-result').innerText = score.toFixed(4);
+            }
+
+            loadAIModel();
+        };
+    </script>
+</body>
+</html>

@@ -88,7 +88,19 @@ const char* summon_genie() {
         global_genie_size);
     return output_buffer;
 }
+// Dodaj tę funkcję w bloku extern "C"
+EMSCRIPTEN_KEEPALIVE
+const char* ask_external_ai(const char* prompt) {
+    snprintf(output_buffer, sizeof(output_buffer), "🤖 [C++ -> PHP cURL Proxy]: %s", prompt);
+    return output_buffer;
+}
 
+// W funkcji execute_shell_command dodaj obsługę komendy 'askai':
+else if (strncmp(command, "askai ", 6) == 0) {
+    const char* prompt = command + 6;
+    while (*prompt == ' ') prompt++;
+    return ask_external_ai(prompt);
+}
 // 2. Rozmowa z pamięcią modelową Dżina
 EMSCRIPTEN_KEEPALIVE
 const char* talk_to_genie(float metric_value) {
